@@ -1,2 +1,1 @@
-# nhl
-2021-2022 nhl game events
+# analysis of 21-22 nhl game events with focus on scoring methods
