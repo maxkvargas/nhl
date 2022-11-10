@@ -1,0 +1,74 @@
+# analysis of nhl goals
+
+# import packages 
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
+import squarify
+
+# seaborn graph style
+sns.set_style("whitegrid")
+sns.set_context("paper")
+sns.color_palette("colorblind") 
+
+# import data from google bigquery
+sql = """select  goalieNameForShot, shotID, shooterLeftRight, shotType, arenaAdjustedshotDistance, shotAngleAdjusted, arenaAdjustedXCordABS, arenaAdjustedYCordAbs, goal
+from `practice-351619.nhl_2022.shots_2022`
+where shotOnEmptyNet = 0 and shotWasOnGoal = 1 and awaySkatersOnIce = 5 and homeSkatersOnIce = 5 and shotRebound = 0"""
+project_id = 'practice-351619'
+shots = pd.read_gbq(sql, project_id=project_id, dialect='standard')
+
+# number of shots
+total_shots = shots['goal'].count()
+print(total_shots)
+
+# shots by handedness
+shothand = shots.pivot_table(values='goal',index='shooterLeftRight',aggfunc='count',sort=True).reset_index(level=0)
+shothand['percent_shots'] = (shothand['goal'] / total_shots * 100).round(decimals=1)
+shothand = shothand.sort_values('percent_shots',ascending=False)
+f1 = sns.catplot(x='shooterLeftRight',y='percent_shots',data=shothand,estimator='sum',kind='bar').set(title='Shot Handedness')
+ax = f1.facet_axis(0, 0)
+for c in ax.containers:
+    labels = [f'{(v.get_height())}%' for v in c]
+    ax.bar_label(c, labels=labels, label_type='edge')
+
+# shots by shot types
+shottypes = shots.pivot_table(values='goal',index='shotType',aggfunc='count',sort=True).reset_index(level=0)
+shottypes['percent_shots']  = (shottypes['goal'] / total_shots * 100).round(decimals=1)
+shottypes = shottypes.sort_values('percent_shots',ascending=False)
+f2 = sns.catplot(x='shotType',y='percent_shots',data=shottypes,estimator='sum',kind='bar').set(title='Shot Types')
+bx = f2.facet_axis(0, 0)
+for c in bx.containers:
+    labels = [f'{(v.get_height())}%' for v in c]
+    bx.bar_label(c, labels=labels, label_type='edge')
+    
+# shots by distance
+sns.histplot(data=shots,x='arenaAdjustedshotDistance',stat='probability',bins=20,kde=True)
+plt.show()
+# Shots are usually taken within the offensive zone blueline (i.e. 64ft).
+# Thus, shots are evenly distributed between 0ft and 60ft. Let's group them into 4 zones for the sake of categorical analysis.
+shots['shot_distance_zone'] = np.where(shots['arenaAdjustedshotDistance'].between(0,15,inclusive=False),'1st Zone',
+                             np.where(shots['arenaAdjustedshotDistance'].between(15,30,inclusive=True),'2nd Zone',
+                             np.where(shots['arenaAdjustedshotDistance'].between(30,45,inclusive=True),'3rd Zone',
+                             np.where(shots['arenaAdjustedshotDistance'].between(45,60,inclusive=True),'4th Zone','5th Out-Zone'))))
+distance_zones  = shots.pivot_table(values='goal',index='shot_distance_zone',aggfunc='count').reset_index(level=0)
+squarify.plot(sizes=distance_zones.goal,label=distance_zones.shot_distance_zone,alpha=0.8)
+plt.show()
+
+# shots by angle
+sns.histplot(data=shots,x='shotAngleAdjusted',stat='probability',bins=20,kde=True)
+plt.show()
+
+# shots by angle and distance
+plt.plot('shotAngleAdjusted','arenaAdjustedshotDistance',data=shots,linestyle='',marker='o',markersize=2,alpha=0.2)
+plt.xlabel('shotAngleAdjusted')
+plt.ylabel('arenaAdjustedDistance')
+plt.show()
+
+# shots by location
+sns.kdeplot(x=shots.arenaAdjustedXCordABS,y=shots.arenaAdjustedYCordAbs,cmap='Reds',shade=True,bw_adjust=0.5)
+plt.show()
+                                       
+                                       
