@@ -69,6 +69,4 @@ plt.show()
 
 # shots by location
 sns.kdeplot(x=shots.arenaAdjustedXCordABS,y=shots.arenaAdjustedYCordAbs,cmap='Reds',shade=True,bw_adjust=0.5)
-plt.show()
-                                       
-                                       
+plt.show()                      
